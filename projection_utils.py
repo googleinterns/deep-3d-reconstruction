@@ -23,9 +23,9 @@ FACES = np.array([
 
 
 def get_axismatrix(axisfile):
-    """Process axis alignment matrix
-        axisfile: file containing axis alignment matrix
-        Return: 4x4 axis alignment matrix
+    """Process axis alignment matrix.
+        axisfile: file containing axis alignment matrix.
+        Return: 4x4 axis alignment matrix.
     """
     f = open(axisfile)
     axis_align_matrix = np.array(
@@ -37,7 +37,7 @@ def get_axismatrix(axisfile):
 
 
 def read_mesh_vertices(filename):
-    """ read XYZ for each vertex.
+    """ Read XYZ for each vertex.
     """
     assert os.path.isfile(filename)
     with open(filename, 'rb') as f:
@@ -50,37 +50,38 @@ def read_mesh_vertices(filename):
     return vertices
 
 
-def alignaxis(axisfile, plyfile, sample=False):
-    """Align the point clouds using the axis alignment matrix
+def align_axis(axis_file, ply_file, sample=False):
+    """Align the point clouds using the axis alignment matrix.
         Args:
-          axisfile: file containig the axis alignment matrix
-          plyfile: point cloud file
+          axis_file: file containig the axis alignment matrix.
+          ply_file: point cloud file.
+          sample: boolean value to sample from point clouds.
 
-        Return: x,y,z numpy array of 5000 points if sample is true
+        Return: x,y,z numpy array of 5000 points if sample is true.
     """
-    assert os.path.isfile(axisfile)
-    axis_align_matrix = get_axismatrix(axisfile)
-    mesh_vertices = read_mesh_vertices(plyfile)
+    assert os.path.isfile(axis_file)
+    axis_align_matrix = get_axismatrix(axis_file)
+    mesh_vertices = read_mesh_vertices(ply_file)
 
-    # align the vertices to axis co-ordinate
-    pts = np.ones((mesh_vertices.shape[0], 4))
-    pts[:, 0:3] = mesh_vertices[:, 0:3]
-    # rigid body transformation of the points
-    pts = np.matmul(axis_align_matrix, pts.transpose()).T
-    mesh_vertices[:, 0:3] = pts[:, 0:3]
+    # Align the vertices to axis co-ordinate.
+    points = np.ones((mesh_vertices.shape[0], 4))
+    points[:, 0:3] = mesh_vertices[:, 0:3]
+    # Rigid body transformation of the points.
+    points = np.matmul(axis_align_matrix, points.transpose()).T
+    mesh_vertices[:, 0:3] = points[:, 0:3]
 
     if sample:
-        pts = np.arange(pts.shape[0])
-        pts = np.random.choice(pts, 5000, replace=False)
+        points = np.arange(points.shape[0])
+        points = np.random.choice(points, 5000, replace=False)
 
-    return mesh_vertices[pts]
+    return mesh_vertices[points]
 
 
-def rotationmat(heading_angle):
-    """Rotate axis by heading angle
+def rotation_matrix(heading_angle):
+    """Rotate axis by heading angle.
 
-        heading_angle: angle of rotation
-        Return: 3x3 rotation matrix
+        heading_angle: angle of rotation.
+        Return: 3x3 rotation matrix.
     """
     rotmat = np.zeros((3, 3))
     rotmat[2, 2] = 1
@@ -91,16 +92,16 @@ def rotationmat(heading_angle):
 
 
 def local_coord(scale):
-    """Define a 3d coord cube centered at 0
+    """Define a 3D axis-aligned coord cube centered at 0.
 
-        scale: size 3 list/array for size of the cube
-        Return: 9x3 array of local vertices for cube with center at 0
+        scale: size 3 list/array for size of the cube.
+        Return: 9x3 array of local vertices for cube with center at 0.
     """
     w = scale[0] / 2.
     h = scale[1] / 2.
     d = scale[2] / 2.
 
-    # Define the local coordinate system, w.r.t. the center of the box
+    # Define the local coordinate system, w.r.t. the center of the box.
     box_coords = np.array([[0., 0., 0.], [-w, -h, -d], [-w, -h, +d], [-w, +h, -d],
                            [-w, +h, +d], [+w, -h, -d], [+w, -h, +d], [+w, +h, -d],
                            [+w, +h, +d]])
@@ -108,23 +109,24 @@ def local_coord(scale):
 
 
 def gen_vertices(box_points, heading_angle):
-    """Generate homogenous vertices of bounding boxes given center, size and heading angle of box
+    """Generate homogenous vertices of bounding boxes given center, size and heading angle of box.
         Args:
-          boxpoint: size 7 array containing box center, size and angle in degrees
+          box_points: size 7 array containing box center, size and angle in degrees.
+          heading_angle: angle of rotation.
 
-        Return: 9x4 array of vertices for bounding box
+        Return: 9x4 array of vertices for bounding box.
     """
-    # convert angle to radians
+    # Convert angle to radians.
     heading_angle = heading_angle * np.pi / 180
 
-    ctr = box_points[:3]
+    center = box_points[:3]
     lengths = box_points[3:6]
-    trns = np.eye(4)
-    trns[0:3, 3] = ctr
-    trns[3, 3] = 1.0
-    trns[0:3, 0:3] = rotationmat(heading_angle)
+    transformations = np.eye(4)
+    transformations[0:3, 3] = center
+    transformations[3, 3] = 1.0
+    transformations[0:3, 0:3] = rotation_matrix(heading_angle)
 
-    # returns box center and has homogenous coord
+    # Returns box center and has homogenous coord.
     local_coords = local_coord(lengths)
     local_coords = np.c_[local_coords, np.ones(local_coords.shape[0])]
     box_vertices = np.matmul(trns, local_coords.T).T
@@ -132,15 +134,15 @@ def gen_vertices(box_points, heading_angle):
 
 
 def get_box_vertices(box_objects, heading_angles=None):
-    """Generate homogenous vertices of bounding boxes given center, size and heading angle of box
+    """Generate homogenous vertices of bounding boxes given center, size and heading angle of box.
         Args:
-          box_objects: Nx7 array containing box center, size and angle of N boxes
-          heading_angles N angles
+          box_objects: Nx7 array containing box center, size and angle of N boxes.
+          heading_angles N angles.
 
-        Return: Nx9x3 array of vertices for bounding box
+        Return: Nx9x3 array of vertices for bounding box.
     """
 
-    # calculate 3d-vertices of objects in image
+    # Calculate 3d-vertices of objects in image.
     num_objects = box_objects.shape[0]
     box_vertices = np.zeros((num_objects, 9, 4))
     for i in range(num_objects):
@@ -151,14 +153,14 @@ def get_box_vertices(box_objects, heading_angles=None):
 
 
 def convert2camera_coords(box_vertices, extrinsic_matrix):
-    """Calculate camera coords of the 3d box
+    """Calculate camera coords of the 3d box.
     Args:
-        box_vertices: (3-dimensional array) vertices of all objects in the 3d scene
-        extrinsic_matrix: (4x4 array): camera extrinsic parameters
-    Return: camera coordinate (3-dimensional array) of all objects
+        box_vertices: (3-dimensional array) vertices of all objects in the 3d scene.
+        extrinsic_matrix: (4x4 array): camera extrinsic parameters.
+    Return: camera coordinate (3-dimensional array) of all objects.
     """
     box_vertices = np.transpose(box_vertices, (0, 2, 1))
-    # convert to 2d camera co-ordinates
+    # Convert to 2d camera co-ordinates.
     camera_coords = np.zeros(box_vertices.shape)
     for i in range(camera_coords.shape[0]):
         camera_coords[i] = np.matmul(extrinsic_matrix, box_vertices[i])
@@ -167,18 +169,18 @@ def convert2camera_coords(box_vertices, extrinsic_matrix):
 
 
 def convert2pixel_coords(camera_coordinates, intrinsic_matrix):
-    """Calculate pixel coords of the 3d box
+    """Calculate pixel coords of the 3d box.
     Args:
-        camera_coordinates: (3-dimensional array) camera coords of all objects in the 3d scene
-        intrinsic_matrix: (4x4 array): camera intrinsic parameters
-    Output: pixel points in 2D coordinate for all objects
+        camera_coordinates: (3-dimensional array) camera coords of all objects in the 3d scene.
+        intrinsic_matrix: (4x4 array): camera intrinsic parameters.
+    Output: pixel points in 2D coordinate for all objects.
     """
 
     camera_coordinates = np.transpose(camera_coordinates, (0, 2, 1))
     pixel_coords = np.zeros(camera_coordinates.shape)
     for i in range(pixel_coords.shape[0]):
         pixel_coords[i] = np.matmul(intrinsic_matrix, camera_coordinates[i])
-        # project 3d points to 2d
+        # Project 3D points to 2D.
         pixel_coords[i, :3, :] = np.nan_to_num(
             pixel_coords[i, :3, :] / pixel_coords[i, 2, :])
 
@@ -186,13 +188,14 @@ def convert2pixel_coords(camera_coordinates, intrinsic_matrix):
 
 
 def create_aligned_pose(axis_alignment, extrinsic_matrix):
-    """Axis align the extrinsic matrix and convert to world to camera coords
+    """Axis align the extrinsic matrix and convert to world to camera coords.
     Args:
-        axis_alinment: axis_alignment matrix
-        extrinsic_matrix: (4x4 array): camera to world extrinsic parameters
-    Return: axis aligned world to camera pose
+        axis_alinment: axis_alignment matrix.
+        extrinsic_matrix: (4x4 array): camera to world extrinsic parameters.
+    Return: axis aligned world to camera pose.
     """
     pose = np.matmul(axis_alignment, extrinsic_matrix)
+    # Invert the pose since the extrinsic matrix is camera to world. 
     pose = np.linalg.inv(pose)
 
     return pose
@@ -200,16 +203,16 @@ def create_aligned_pose(axis_alignment, extrinsic_matrix):
 
 def projection_to_rgb(box_objects, intrinsic_matrix, extrinsic_matrix,
                       axis_alignment, align_pose=True, heading_angles=None):
-    """ Project points from 3D to 2D images
+    """ Project points from 3D to 2D images.
     Args:
-        box_objects: Nx7 array containing box center, size and angle of N boxes
-        intrinsic_matrix: (4x4 array): camera intrinsic parameters
-        extrinsic_matrix: (4x4 array): camera extrinsic parameters
-        axis_alinment: axis_alignment matrix
-        align pose: Boolean value set to True is extrinsic matrix is camera to world and has to be axis aligned
-        heading_angles: angle heading for each box object
+        box_objects: Nx7 array containing box center, size and angle of N boxes.
+        intrinsic_matrix: (4x4 array): camera intrinsic parameters.
+        extrinsic_matrix: (4x4 array): camera extrinsic parameters.
+        axis_alinment: axis_alignment matrix.
+        align pose: Boolean value set to True is extrinsic matrix is camera to world and has to be axis aligned.
+        heading_angles: angle heading for each box object.
 
-    Output: pixel points in 2D coordinate for all objects
+    Output: pixel points in 2D coordinate for all objects.
     """
     if align_pose:
         extrinsic_matrix = create_aligned_pose(
@@ -230,7 +233,7 @@ def draw_boxes(boxes=[], infile="", axisfile="", colors=['r', 'b', 'g', 'k'], na
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
     if infile != "":
-        verts = alignaxis(axisfile, infile, sample=True)
+        verts = align_axis(axisfile, infile, sample=True)
         ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], c='r', marker='o')
 
     ax.set_xlabel('X Coord')
@@ -248,17 +251,19 @@ def draw_boxes(boxes=[], infile="", axisfile="", colors=['r', 'b', 'g', 'k'], na
     ax.w_yaxis.set_pane_color((0.8, 0.8, 0.8, 1.0))
     ax.w_zaxis.set_pane_color((0.8, 0.8, 0.8, 1.0))
 
-    # rotate the axes and update
+    # Rotate the axes and update.
     ax.view_init(30, 12)
     plt.draw()
     plt.savefig(name)
     plt.show()
 
 
-def draw_2dboxes(imgname, boxes=[], points=True, greyscale=False, flip=True):
+def draw_2dboxes(filename, boxes=[], points=True, greyscale=False, flip=True):
     """Draw a list of boxes.
+    Args:
+        filename: file path to the image.
 
-      The boxes are defined as a list of vertices
+      The boxes are defined as a list of vertices.
     """
     def make_diag_edges(face):
         diag_a = face[[0, 2]]
@@ -269,9 +274,9 @@ def draw_2dboxes(imgname, boxes=[], points=True, greyscale=False, flip=True):
     fig = plt.figure(figsize=(10, 10))
 
     if greyscale:
-        cvimg = cv2.imread(imgname, cv2.IMREAD_GRAYSCALE)
+        cvimg = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     else:
-        cvimg = cv2.imread(imgname)
+        cvimg = cv2.imread(filename)
         cvimg = cv2.cvtColor(cvimg, cv2.COLOR_BGR2RGB)
 
     height, width = cvimg.shape[:2]
@@ -283,14 +288,14 @@ def draw_2dboxes(imgname, boxes=[], points=True, greyscale=False, flip=True):
         b = np.float32(b)
         x, y = b[:, 0], b[:, 1]
 
-        # skip points whose center is outside of the image
+        # Skip points whose center is outside of the image.
         if (x[0] > width) or (y[0] > height):
             continue
 
-        # plot box front
+        # Plot box front.
         diag_a, diag_b = make_diag_edges(FACES[0])
 
-        # plot the center
+        # Plot the center.
         if points:
             if flip:
                 plt.scatter(x, height - y, c='r')
@@ -309,7 +314,7 @@ def draw_2dboxes(imgname, boxes=[], points=True, greyscale=False, flip=True):
                     plt.text(x[0], y[0], 'Box {}'.format(
                         str(i + 1)), color='white')
 
-        # plot the edges
+        # Plot the edges.
         for e in EDGES:
             if points:
                 if flip:

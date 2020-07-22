@@ -1,11 +1,16 @@
-import tensorflow as tf
-import numpy as np
-from projection_utils import get_axismatrix, projection_to_rgb
 import os
+import numpy as np
+import tensorflow as tf
+from projection_utils import get_axismatrix, projection_to_rgb
 
+# Change these variables if needed.
 ROOT_DIR = '/home/chidubem/deep-3d-reconstruction/scannet/scans/'
 BATCH_SIZE = 5
 NUM_EPOCHS = 5
+
+HEIGHT = 968
+WIDTH = 1296
+TRAIN_SIZE = 15
 
 
 def _bytes_feature(value):
@@ -33,15 +38,15 @@ def serialize_example(
         intrinsic_matrix,
         axis_matrix,
         box_objects):
-    """Serialize to tensoflow example and save to tf records
+    """Serialize to tensoflow example and save to tf records.
     Args:
-        images: array of rgb images for each scene
-        depths: array of depth images for each scene
-        extrinsic_matrix: (4x4 array): camera to world extrinsic parameters
-        intrinsic_matrix: (4x4 array): camera intrinsic parameters
-        axis_alinment: (4x4 array): axis_alignment matrix
-        box_objects: Nx7 array containing box center, size and angle of N boxes
-    Return: serialized tensorflow example of a scene
+        images (np.float32): array containing multiple rgb images for each scene.
+        depths (np.float32): array containing multiple  depth images for each scene.
+        extrinsic_matrix (np.float64): (Mx4x4 array): multi array of camera to world extrinsic parameters.
+        intrinsic_matrix (np.float64): (4x4 array): camera intrinsic parameters.
+        axis_alinment (np.float32): (4x4 array): axis_alignment matrix.
+        box_objects (np.float64): Nx7 array containing box center, size and angle of N boxes.
+    Return: serialized tensorflow example of a scene.
     """
 
     feature = {
@@ -52,8 +57,7 @@ def serialize_example(
         'axis_matrix': _bytes_feature(axis_matrix),
         'box_objects': _bytes_feature(box_objects),
     }
-
-    #  Create a Features message using tf.train.Example.
+    #  Create a message using tf.train.Example.
     example_proto = tf.train.Example(
         features=tf.train.Features(
             feature=feature))
@@ -68,16 +72,16 @@ def save_to_tfrecords(
         axis_matrix_path,
         box_objects_path,
         filename):
-    """Saves tensoflow examples to tf records
+    """Saves tensoflow examples to tf records.
     Args:
-        image_paths: array of paths of rgb images for each scene
-        depth_paths: array of paths of depth images for each scene
-        extrinsic_matrix_paths: array of paths for camera to world extrinsic parameters
-        intrinsic_matrix: path for camera intrinsic parameters
-        axis_alinment: path for axis_alignment matrix
-        box_objects: path for box objects
-        filename: path to save the tfrecord
-    Return: serialized tensorflow example of a scene
+        image_paths: array of paths of rgb images for each scene.
+        depth_paths: array of paths of depth images for each scene.
+        extrinsic_matrix_paths: array of paths for camera to world extrinsic parameters.
+        intrinsic_matrix: path for camera intrinsic parameters.
+        axis_alinment: path for axis_alignment matrix.
+        box_objects: path for box objects.
+        filename: path to save the tfrecord.
+    Return: serialized tensorflow example of a scene.
     """
 
     images = []
@@ -90,13 +94,11 @@ def save_to_tfrecords(
 
             img = tf.keras.preprocessing.image.load_img(image_path)
             img_array = tf.keras.preprocessing.image.img_to_array(img)
-            img_array = img_array
             images.append(img_array)
 
-            img = tf.keras.preprocessing.image.load_img(depth_path)
-            img_array = tf.keras.preprocessing.image.img_to_array(img)
-            img_array = img_array
-            depths.append(img_array)
+            depth_img = tf.keras.preprocessing.image.load_img(depth_path)
+            depth_img = tf.keras.preprocessing.image.img_to_array(depth_img)
+            depths.append(depth_img)
 
             extrinsics.append(np.loadtxt(extrinsic_path))
 
@@ -119,10 +121,10 @@ def save_to_tfrecords(
 
 
 def read_decode_tfrecords(serialized_example):
-    """Reads and parses tfrecords
+    """Reads and parses tfrecords.
     Args:
-        serialized_example: path to save the tfrecord
-    Return: dictionary of data pipeline
+        serialized_example: path to save the tfrecord.
+    Return: dictionary of data pipeline.
     """
     feature_description = {
         'images': tf.io.FixedLenFeature((), tf.string),
@@ -157,12 +159,12 @@ def read_decode_tfrecords(serialized_example):
 
 
 def get_images_with_boxes(scene_dir):
-    """Get selected random images that have most boxes
+    """Get selected random images that have most boxes.
     Args:
-        scene_dir: directory path for scene
-    Return: image paths, depth_paths and extrinsic paths
+        scene_dir: directory path for scene.
+    Return: image paths, depth_paths and extrinsic paths.
     """
-
+    seed = 2000
     image_paths = os.path.join(scene_dir, 'color')
     depth_paths = os.path.join(scene_dir, 'depth')
     extrinsic_paths = os.path.join(scene_dir, 'pose')
@@ -174,11 +176,6 @@ def get_images_with_boxes(scene_dir):
             scene_dir,
             'intrinsic_color.txt'))
     box_objects = np.loadtxt(os.path.join(scene_dir, 'box_coords.txt'))
-
-    # assuming all images have the same width and height, change if not true
-    height = 968
-    width = 1296
-    train_size = 15
 
     images = os.listdir(image_paths)
     center_counts = []
@@ -194,22 +191,22 @@ def get_images_with_boxes(scene_dir):
             extrinsic_matrix,
             axis_matrix)
 
-        # check if center of box in image
+        # Check if center of box in image.
         count = 0
         for i, b in enumerate(boxes):
             b = np.float32(b)
             x, y = b[:, 0], b[:, 1]
-            if (x[0] < width) and (y[0] < height):
+            if (x[0] < WIDTH) and (y[0] < HEIGHT):
                 count += 1
         center_counts.append(count)
 
-    # sort in center counts in descending order and select the top 30 images
-    center_indexes = np.argsort(center_counts)[::-1][:30]
-    assert center_indexes.size >= train_size, "reduce train size"
-    # randomly select train_size images from the list
-    np.random.seed(2000)
+    # Sort in center counts in descending order and select the top images.
+    center_indexes = np.argsort(center_counts)[::-1][:TRAIN_SIZE+5]
+    assert center_indexes.size >= TRAIN_SIZE, "reduce train size"
+    # Randomly select TRAIN_SIZE images from the list.
+    np.random.seed(seed)
     center_indexes = np.random.choice(
-        center_indexes, train_size, replace=False)
+        center_indexes, TRAIN_SIZE, replace=False)
 
     image_paths = [os.path.join(image_paths, images[i])
                    for i in center_indexes]
@@ -222,10 +219,11 @@ def get_images_with_boxes(scene_dir):
 
 
 def get_scene_data(scenename):
-    """Reads input data from scene
+    """Reads input data from scene. 
+    The sens file should be parsed for each scene and box_coords should contain center, size and heading angles of all objects in scene.
     Args:
-        scenename: name of scene
-    Return: inputs for data pipeline
+        scenename: name of scene.
+    Return: inputs for data pipeline.
     """
     scene_dir = os.path.join(ROOT_DIR, scenename)
     image_paths, depth_paths, extrinsic_matrix_paths = get_images_with_boxes(
@@ -239,7 +237,7 @@ def get_scene_data(scenename):
 
 
 def write_data_to_tfrecords(train_data):
-    """Saves data for training as tfrecords"""
+    """Saves data for training as tfrecords."""
     assert os.path.isfile(train_data)
     count = 0
     for line in open(train_data):
@@ -248,17 +246,17 @@ def write_data_to_tfrecords(train_data):
 
 
 def input_fn(tfrecords):
-    """Create input pipeline for the model
+    """Create input pipeline for the model.
     Args:
-        tfrecords: file lists or file of tfrecords
-    Return: dataset for training
+        tfrecords: file lists or file of tfrecords.
+    Return: dataset for training.
     """
 
     dataset = tf.data.TFRecordDataset(tfrecords)
     dataset = dataset.map(read_decode_tfrecords, num_parallel_calls=4)
-# dataset = dataset.shuffle(400).repeat().batch(BATCH_SIZE) # box objects
-# have different shape so cannot be batched
-    dataset = dataset.shuffle(400).repeat(NUM_EPOCHS)
+    # Uncomment for large datasets, also ensure box objects have same size when using batch.
+    # dataset = dataset.shuffle(400).repeat(NUM_EPOCHS).batch(BATCH_SIZE) 
+    dataset = dataset.shuffle(400)
     dataset = dataset.prefetch(buffer_size=10)
 
     return dataset
