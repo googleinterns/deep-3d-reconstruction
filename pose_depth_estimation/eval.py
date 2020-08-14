@@ -13,8 +13,8 @@ parser = argparse.ArgumentParser(description="Disparity Project")
 parser.add_argument('--identifier', default="sfm_resnet18")
 parser.add_argument('--dataset_dir', default='../train_data')
 parser.add_argument('--demo_set', default="../scannet/scans")
-parser.add_argument("--input_h", default=480)
-parser.add_argument("--input_w", default=640)
+parser.add_argument("--input_h", default=968)
+parser.add_argument("--input_w", default=1296)
 
 PROJECT_DIR = os.getcwd()
 HOME = str(pathlib.Path.home())
@@ -60,24 +60,36 @@ class Evaluator:
             raise ValueError(f'No Weight to restore in {output_dir}')
 
     def do_demo(self, folder):
-        scene = 'scene0001_00'
-        save_dir = os.path.join(self.output_dir, 'predictions', scene)
+        scene = 'scene0004_00'
+        save_dir = os.path.join(self.output_dir, 'predictions', scene, 'big_image')
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
+            
+        depth_dir = os.path.join(os.path.dirname(save_dir), 'depth')
+        if not os.path.isdir(depth_dir):
+            os.makedirs(depth_dir)
 
         folder_dir = os.path.join(folder, scene, 'color', '*.jpg')
         images_files = sorted(glob.glob(folder_dir))
         print(f'doing demo on {os.path.dirname(folder_dir)}... ')
         print(f'saving prediction to {save_dir}...')
         for i, img_path in enumerate(images_files):
+            filename = os.path.basename(img_path)[:-4]
             img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, (self.params.input_w, self.params.input_h))
             img_input = tf.expand_dims(tf.convert_to_tensor(img, tf.float32) / 255., 0)
             outputs = self.val_step(img_input)
 
             disp = np.squeeze(outputs['disparity0'].numpy())
+            
+            # save the depth image
+            if img.shape[0] != disp.shape[0]:
+                disp = cv2.resize(disp, (self.params.input_w, self.params.input_h)) 
+            cv2.imwrite(os.path.join(depth_dir, f'{filename}.png'), disp)
+            
+            # save the big image
             disp = visualize_colormap(disp)
-            save_path = os.path.join(save_dir, f'{i}.png')
+            save_path = os.path.join(save_dir, f'{filename}.png')
 
             big_image = np.zeros(shape=(self.params.input_h * 2, self.params.input_w, 3))
             big_image[:self.params.input_h, ...] = img
@@ -136,7 +148,7 @@ class Evaluator:
         print(" Scaling ratios | med: {:0.3f} | std: {:0.3f}".format(med, np.std(ratios / med)))
 
         mean_errors = np.array(errors).mean(0)
-        np.savetxt(os.path.join(self.output_dir, 'mean_errors.txt'), mean_errors)
+        np.savetxt(os.path.join(self.output_dir,'mean_errors.txt'), mean_errors)
 
         print("\n  " + ("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
         print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")

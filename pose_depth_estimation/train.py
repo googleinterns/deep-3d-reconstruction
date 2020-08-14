@@ -229,8 +229,10 @@ class Trainer:
             combined_l1 = tf.reduce_min(combined_l1, axis=-1)
             combined_ssim = tf.reduce_min(combined_ssim, axis=-1)
 
-            _ssim_loss = tf.reduce_mean(combined_ssim) * 0.85
-            _l1_loss = tf.reduce_mean(combined_l1) * 0.15
+#             _ssim_loss = tf.reduce_mean(combined_ssim) * 0.85
+#             _l1_loss = tf.reduce_mean(combined_l1) * 0.15
+            _ssim_loss = tf.reduce_mean(combined_ssim) * 0.15
+            _l1_loss = tf.reduce_mean(combined_l1) * 0.85
             total_l1_loss += _l1_loss
             total_ssim_loss += _ssim_loss
 

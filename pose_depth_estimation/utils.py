@@ -1,9 +1,12 @@
 import os
 from collections import Counter
 import matplotlib as mpl
-import numpy as np
-import tensorflow as tf
+import matplotlib.pyplot as plt
 from matplotlib import cm as cm
+import numpy as np
+import cv2
+import tensorflow as tf
+
 
 
 ###########################################################################
@@ -376,7 +379,6 @@ def visualize_colormap(mat):
     mapper = cm.ScalarMappable(norm=normalizer, cmap='magma')
     colormapped_im = (mapper.to_rgba(mat)[:, :, :3] * 255).astype(np.uint8)
     return colormapped_im
-
 
 ###########################################################################
 # OS
