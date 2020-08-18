@@ -346,3 +346,6 @@ def input_fn(tfrecords, map_fn=None, load_option='train'):
     dataset = dataset.prefetch(buffer_size=AUTOTUNE)
 
     return dataset
+
+if __name__ == '__main__':
+    write_data_to_tfrecords('train_data.txt')
