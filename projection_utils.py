@@ -129,7 +129,7 @@ def gen_vertices(box_points, heading_angle):
     # Returns box center and has homogenous coord.
     local_coords = local_coord(lengths)
     local_coords = np.c_[local_coords, np.ones(local_coords.shape[0])]
-    box_vertices = np.matmul(trns, local_coords.T).T
+    box_vertices = np.matmul(transformations, local_coords.T).T
     return box_vertices
 
 
